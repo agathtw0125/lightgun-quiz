@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<title>拋體光槍</title>
+<style>
+:root{--bg:#0b1020;--panel:#141b33;--ink:#eef2ff;--muted:#9aa6c8;--line:#2c3763;--c:#ff4d6d;--ok:#2fd27a}
+body.p2{--c:#3fa9ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+[hidden]{display:none!important}
+#intro{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center}
+#intro h1{margin:0;color:var(--c);font-size:42px}
+#intro p{margin:0;color:var(--muted);line-height:1.6;max-width:30em}
+#go{font-size:24px;font-weight:800;padding:16px 40px;background:var(--c);border:0;color:#fff;border-radius:16px}
+#introMsg{color:#ffcc4d!important}
+#pad{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;gap:8px;align-items:center;padding:8px calc(8px + env(safe-area-inset-right)) 8px calc(8px + env(safe-area-inset-left));background:var(--panel);border-bottom:2px solid var(--c);flex-wrap:wrap}
+.bar .who{font-weight:900;color:var(--c)}
+#conn{font-size:13px;color:var(--muted)}
+#conn.on{color:var(--ok)}
+#score{margin-left:auto;font-weight:900;font-size:22px;font-variant-numeric:tabular-nums}
+#cal{background:#ffcc4d;color:#1a1300;border:0;font-weight:800}
+.sens{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--muted)}
+.area{flex:1;display:flex;min-height:0}
+#drag{flex:1.4;display:grid;place-items:center;color:var(--muted);border-right:2px dashed var(--line);font-size:18px}
+#fire{flex:1;display:grid;place-items:center;font-size:clamp(40px,12vw,90px);font-weight:900;color:var(--c);background:radial-gradient(circle,rgba(255,255,255,.06),transparent 70%);position:relative}
+#fire small{display:block;font-size:15px;color:var(--muted);font-weight:400;text-align:center}
+#flash{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
+#msg{position:fixed;left:0;right:0;bottom:10px;text-align:center;font-size:14px;color:var(--muted);pointer-events:none;padding:0 12px}
+#calbox{position:fixed;inset:0;z-index:5;background:rgba(11,16,32,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:16px}
+#calbox .prog{color:var(--muted);font-size:15px}
+#calbox .t{font-size:clamp(28px,8vw,52px);font-weight:900;color:#ffcc4d}
+#calbox .d{color:var(--muted);font-size:16px;line-height:1.5}
+#calbox button{margin-top:6px}
+#cal4{background:#ffcc4d;color:#1a1300;border:0;font-weight:800}
+#cal{background:var(--panel);color:var(--ink);border:1px solid var(--line);font-weight:400}
+#big{position:fixed;left:0;right:0;top:40%;text-align:center;font-size:64px;font-weight:900;pointer-events:none;opacity:0;transition:opacity .4s}
+</style>
+</head>
+<body>
+<div id="intro">
+  <h1 id="who">紅隊 P1</h1>
+  <p><b>側拿手機</b>，手機的<b>頂端</b>就是槍口，對準大螢幕。<br>轉動手機瞄準答案靶，點螢幕就開火。</p>
+  <button id="go">開始</button>
+  <p id="introMsg"></p>
+</div>
+
+<div id="pad" hidden>
+  <div class="bar">
+    <span class="who" id="who2">P1</span>
+    <span id="conn">連線中…</span>
+    <button id="cal4">五點校準</button>
+    <button id="cal">快速校準</button>
+    <span class="sens"><button id="sm">靈敏−</button><span id="sv"></span><button id="sp">靈敏＋</button></span>
+    <button id="modeBtn">改用觸控板</button>
+    <span id="score">0</span>
+  </div>
+  <div class="area">
+    <div id="drag" hidden>在這裡拖曳<br>移動準星</div>
+    <div id="fire"><div>開火<small id="fireHint">點這裡任何地方</small></div></div>
+  </div>
+</div>
+<div id="calbox" hidden>
+  <div class="prog" id="calProg"></div>
+  <div class="d">手機頂端對準大螢幕上的</div>
+  <div class="t" id="calTitle"></div>
+  <div class="d">對準、拿穩後，<b>點螢幕任何地方</b>記錄這一點</div>
+  <button id="calCancel">取消</button>
+</div>
+<div id="flash"></div>
+<div id="big"></div>
+<div id="msg"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const qs=new URLSearchParams(location.search);
+const room=qs.get('room'); const P=qs.get('p')==='2'?2:1;
+document.body.classList.add('p'+P);
+$('#who').textContent = P===1?'紅隊 P1':'藍隊 P2';
+$('#who2').textContent = 'P'+P;
+if(!room){ $('#introMsg').textContent='網址裡沒有房間代碼，請重新掃大螢幕上的 QR Code。'; $('#go').disabled=true; }
+
+const D=Math.PI/180;
+let mode='gyro';                     // gyro | pad
+let H=18;                            // 大螢幕左右邊緣在 ±H 度
+try{ const h=+localStorage.getItem('pgunH'); if(h>=8&&h<=40) H=h; }catch(e){}
+let ori=null, cal=null, gotSensor=false;
+let ax=.5, ay=.5, lastSend=0;
+
+function msg(t){ $('#msg').textContent=t; }
+function showSens(){ $('#sv').textContent='±'+H+'°'; }
+showSens();
+
+/* ---------- 連線 ---------- */
+let peer=null, conn=null, retryT=null;
+function setConn(t,on){ const c=$('#conn'); c.textContent=t; c.classList.toggle('on',!!on); }
+function connect(){
+  clearTimeout(retryT);
+  if(typeof Peer==='undefined'){ setConn('連線元件載入失敗，請確認手機有網路'); return; }
+  if(!peer || peer.destroyed){
+    peer=new Peer({debug:1});
+    peer.on('open', dial);
+    peer.on('disconnected', ()=>{ try{ peer.reconnect(); }catch(e){} });
+    peer.on('error', e=>{
+      if(e.type==='peer-unavailable') setConn('找不到大螢幕（房間 '+room+'），重試中…');
+      else setConn('連線錯誤：'+e.type+'，重試中…');
+      retry();
+    });
+  }else if(peer.open) dial();
+}
+function dial(){
+  if(conn && conn.open) return;
+  setConn('連線大螢幕中…');
+  conn=peer.connect('pgun-'+room,{metadata:{p:P},serialization:'json',reliable:true});
+  conn.on('open', ()=>{ setConn('已連線 ✓',true); conn.send({t:'hi',m:mode}); });
+  conn.on('data', onMsg);
+  conn.on('close', ()=>{ setConn('連線中斷，重新連線…'); retry(); });
+  conn.on('error', ()=>retry());
+}
+function retry(){ clearTimeout(retryT); retryT=setTimeout(connect,2000); }
+function send(m){ if(conn && conn.open){ try{ conn.send(m); }catch(e){} } }
+
+function onMsg(d){
+  if(!d || typeof d!=='object') return;
+  if(d.t==='hello'){ $('#score').textContent=d.score||0; phaseHint(d.phase); }
+  else if(d.t==='phase'){ phaseHint(d.phase); }
+  else if(d.t==='res'){
+    $('#score').textContent=d.score;
+    flash(d.ok?'#2fd27a':'#ff3355', d.ok?('+'+d.pts):('−'+Math.abs(d.pts)));
+    vib(d.ok?[40,40,80]:[250]);
+  }
+}
+function phaseHint(ph){
+  msg({lobby:'轉動手機，看大螢幕上的準星有沒有跟著走。不準的話按「五點校準」。', play:'瞄準正確答案的靶，開火！打錯會扣分並暫停 1.5 秒。', reveal:'看詳解；射「下一題」的靶繼續。', end:'這局結束了，看大螢幕的結果。'}[ph]||'');
+}
+function flash(c,t){
+  const f=$('#flash'); f.style.background=c; f.style.opacity=.55; setTimeout(()=>f.style.opacity=0,120);
+  const b=$('#big'); b.textContent=t; b.style.color=c; b.style.opacity=1; setTimeout(()=>b.style.opacity=0,700);
+}
+function vib(p){ try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} }
+
+/* ---------- 瞄準：陀螺儀 ---------- */
+/* 手機頂端（y 軸）在世界座標的指向 v = (−sinα·cosβ, cosα·cosβ, sinβ)
+   水平角 yaw = atan2(−vx, vy)，仰角 pitch = asin(vz)
+   平面螢幕：落點 = 距離 × tanθ，所以用 tan 換算到螢幕座標 */
+function onOri(e){
+  if(e.alpha==null || e.beta==null) return;
+  gotSensor=true;
+  const a=e.alpha*D, b=e.beta*D, cb=Math.cos(b);
+  const vx=-Math.sin(a)*cb, vy=Math.cos(a)*cb, vz=Math.sin(b);
+  ori={yaw:Math.atan2(-vx,vy), pitch:Math.asin(Math.max(-1,Math.min(1,vz)))};
+  buf.push(ori); if(buf.length>8) buf.shift();
+  if(!cal && !calib) calibrate();
+  if(mode==='gyro' && calStep<0) aimFromOri();
+}
+function clampA(x){ const m=75*D; return Math.max(-m,Math.min(m,x)); }
+
+/* ---------- 五點校準 ----------
+   以「中央」那一筆的指向當作正前方，把每個指向投影到正前方的一個平面上（gnomonic 投影）。
+   空間中的直線投影後還是直線，所以「投影平面 → 大螢幕平面」剛好是一個投影變換（homography），
+   用四個角就能解出 8 個係數。坐在旁邊、斜看螢幕、離螢幕遠近，都會被這個變換修正。 */
+const CAL_PTS=[[.5,.5],[.05,.07],[.95,.07],[.95,.93],[.05,.93]];
+const CAL_NAMES=['中央黃點','左上角 ①','右上角 ②','右下角 ③','左下角 ④'];
+let calib=null, corr={yaw:0,pitch:0}, calStep=-1, calRec=[];
+const buf=[];
+function dirOf(yaw,pitch){ const cp=Math.cos(pitch); return [-Math.sin(yaw)*cp, Math.cos(yaw)*cp, Math.sin(pitch)]; }
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function cross(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function unit(a){ const l=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/l,a[1]/l,a[2]/l]; }
+function avgReading(){            // 最近 8 筆平均，減少按下去那一刻的手抖
+  const n=buf.length; if(!n) return ori;
+  const y0=buf[n-1].yaw; let sy=0, sp=0;
+  for(const r of buf){ let d=r.yaw-y0; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; sy+=d; sp+=r.pitch; }
+  return {yaw:y0+sy/n, pitch:sp/n};
+}
+function gnomonic(v,B){ const k=dot(v,B.c); if(k<0.1) return null; return [dot(v,B.r)/k, dot(v,B.u)/k]; }
+function solveH(src,dst){
+  const A=[], b=[];
+  for(let i=0;i<4;i++){
+    const x=src[i][0], y=src[i][1], X=dst[i][0], Y=dst[i][1];
+    A.push([x,y,1,0,0,0,-x*X,-y*X]); b.push(X);
+    A.push([0,0,0,x,y,1,-x*Y,-y*Y]); b.push(Y);
+  }
+  for(let c=0;c<8;c++){
+    let m=c; for(let r=c+1;r<8;r++) if(Math.abs(A[r][c])>Math.abs(A[m][c])) m=r;
+    if(Math.abs(A[m][c])<1e-12) return null;
+    [A[c],A[m]]=[A[m],A[c]]; [b[c],b[m]]=[b[m],b[c]];
+    for(let r=0;r<8;r++){
+      if(r===c) continue; const f=A[r][c]/A[c][c]; if(!f) continue;
+      for(let k=c;k<8;k++) A[r][k]-=f*A[c][k]; b[r]-=f*b[c];
+    }
+  }
+  return b.map((v,i)=>v/A[i][i]);
+}
+function applyH(h,g){ const w=h[6]*g[0]+h[7]*g[1]+1; return [(h[0]*g[0]+h[1]*g[1]+h[2])/w, (h[3]*g[0]+h[4]*g[1]+h[5])/w, w]; }
+
+function startCal4(){
+  if(mode!=='gyro' || !gotSensor){ msg('五點校準要用陀螺儀；觸控板模式不需要校準。'); return; }
+  calStep=0; calRec=[]; showCalStep();
+}
+function showCalStep(){
+  $('#calbox').hidden=false;
+  $('#calTitle').textContent=CAL_NAMES[calStep];
+  $('#calProg').textContent='五點校準　'+(calStep+1)+' / 5';
+  send({t:'cal',step:calStep});
+}
+function recordCal(){
+  if(calStep<0 || !ori) return;
+  calRec[calStep]=avgReading(); vib(30);
+  calStep++;
+  if(calStep<5) showCalStep(); else finishCal();
+}
+function finishCal(){
+  const ref=calRec[0], c=unit(dirOf(ref.yaw,ref.pitch));
+  let r=cross(c,[0,0,1]);
+  if(Math.hypot(r[0],r[1],r[2])<1e-3) return calFail('中央點時手機朝正上方了');
+  r=unit(r); const B={c, r, u:cross(r,c)};
+  const g=calRec.slice(1).map(R=>gnomonic(dirOf(R.yaw,R.pitch),B));
+  if(g.some(x=>!x)) return calFail('有一個角離中央太遠');
+  const [tl,tr,br,bl]=g;
+  if(!(tl[0]<tr[0] && bl[0]<br[0] && tl[1]>bl[1] && tr[1]>br[1])) return calFail('四個角的順序好像不對');
+  const h=solveH(g, CAL_PTS.slice(1));
+  if(!h || h.some(v=>!isFinite(v))) return calFail('這幾個點算不出結果');
+  const mid=applyH(h,[0,0]);
+  if(mid[2]<=0 || Math.abs(mid[0]-.5)>.2 || Math.abs(mid[1]-.5)>.2) return calFail('中央點和四個角對不起來');
+  calib={B,h,ref}; corr={yaw:0,pitch:0};
+  endCal(); updSens();
+  msg('五點校準完成！之後準星慢慢歪掉，對準中央按「快速校準」就好。'); flash('#2fd27a','✓');
+}
+function calFail(t){ endCal(); msg('校準失敗：'+t+'。請再按「五點校準」重做一次。'); flash('#ff3355','✗'); vib([200]); }
+function endCal(){ calStep=-1; $('#calbox').hidden=true; send({t:'cal',step:-1}); }
+function updSens(){ $('.sens').hidden = mode==='pad' || !!calib; }
+
+function aimFromOri(){
+  if(calib){
+    const g=gnomonic(dirOf(ori.yaw-corr.yaw, ori.pitch-corr.pitch), calib.B);
+    if(!g) return;
+    const p=applyH(calib.h,g);
+    if(p[2]<=0.05) return;
+    ax=p[0]; ay=p[1]; sendAim(); return;
+  }
+  let dy=ori.yaw-cal.yaw; while(dy>Math.PI) dy-=2*Math.PI; while(dy<-Math.PI) dy+=2*Math.PI;
+  const dp=ori.pitch-cal.pitch, tH=Math.tan(H*D), tV=tH*9/16;
+  ax=.5-Math.tan(clampA(dy))/(2*tH);
+  ay=.5-Math.tan(clampA(dp))/(2*tV);
+  sendAim();
+}
+function sendAim(force){
+  const now=performance.now();
+  if(!force && now-lastSend<16) return;
+  lastSend=now;
+  ax=Math.max(-.1,Math.min(1.1,ax)); ay=Math.max(-.1,Math.min(1.1,ay));
+  send({t:'aim',x:+ax.toFixed(4),y:+ay.toFixed(4),m:mode});
+}
+function calibrate(){
+  if(mode==='gyro' && ori){
+    const R=avgReading();
+    if(calib) corr={yaw:R.yaw-calib.ref.yaw, pitch:R.pitch-calib.ref.pitch};   // 已做五點校準：只修正整體偏移
+    else cal={yaw:R.yaw,pitch:R.pitch};
+  }
+  ax=.5; ay=.5; sendAim(true); vib(30);
+}
+
+/* ---------- 瞄準：觸控板（沒有陀螺儀或不是 HTTPS 時） ---------- */
+let dragId=null, lx=0, ly=0;
+const drag=$('#drag');
+drag.addEventListener('pointerdown', e=>{ dragId=e.pointerId; lx=e.clientX; ly=e.clientY; drag.setPointerCapture(e.pointerId); });
+drag.addEventListener('pointermove', e=>{
+  if(e.pointerId!==dragId) return;
+  const g=1.6/drag.clientWidth;
+  ax+=(e.clientX-lx)*g; ay+=(e.clientY-ly)*g*1.4; lx=e.clientX; ly=e.clientY; sendAim();
+});
+drag.addEventListener('pointerup', e=>{ if(e.pointerId===dragId) dragId=null; });
+drag.addEventListener('pointercancel', ()=>{ dragId=null; });
+
+function setMode(m){
+  mode=m;
+  $('#drag').hidden = m!=='pad';
+  $('#modeBtn').textContent = m==='pad' ? '改用陀螺儀' : '改用觸控板';
+  $('#fireHint').textContent = m==='pad' ? '點這裡開火' : '點這裡任何地方';
+  updSens();
+  if(m==='pad' && calStep>=0) endCal();
+  send({t:'hi',m});
+  calibrate();
+}
+
+/* ---------- 按鈕 ---------- */
+$('#fire').addEventListener('pointerdown', e=>{ e.preventDefault(); send({t:'fire'}); vib(15); const f=$('#fire'); f.style.background='rgba(255,255,255,.18)'; setTimeout(()=>f.style.background='',90); });
+$('#cal').addEventListener('click', calibrate);
+$('#cal4').addEventListener('click', startCal4);
+$('#calbox').addEventListener('pointerdown', e=>{ if(e.target.id==='calCancel') return; e.preventDefault(); recordCal(); });
+$('#calCancel').addEventListener('click', ()=>{ endCal(); msg('已取消校準。'); });
+$('#sm').addEventListener('click', ()=>{ H=Math.min(40,H+2); saveH(); });
+$('#sp').addEventListener('click', ()=>{ H=Math.max(8,H-2); saveH(); });
+function saveH(){ showSens(); try{ localStorage.setItem('pgunH',H); }catch(e){} }
+$('#modeBtn').addEventListener('click', ()=>{
+  if(mode==='pad'){ if(!gotSensor){ msg('這支手機沒有傳出陀螺儀資料（可能不是 HTTPS 或沒有授權），只能用觸控板。'); return; } setMode('gyro'); }
+  else setMode('pad');
+});
+
+$('#go').addEventListener('click', async ()=>{
+  let denied=false;
+  // iPhone：一定要在點按事件裡請求權限
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    try{ denied = (await DeviceOrientationEvent.requestPermission())!=='granted'; }catch(e){ denied=true; }
+  }
+  if(window.isSecureContext && !denied) addEventListener('deviceorientation', onOri);
+  try{ await document.documentElement.requestFullscreen(); }catch(e){}
+  try{ await screen.orientation.lock('landscape'); }catch(e){}
+  try{ if(navigator.wakeLock) await navigator.wakeLock.request('screen'); }catch(e){}
+  $('#intro').hidden=true; $('#pad').hidden=false;
+  connect();
+  setTimeout(()=>{
+    if(!gotSensor){
+      setMode('pad');
+      msg(!window.isSecureContext ? '網頁不是 HTTPS，陀螺儀被瀏覽器擋住了，先用觸控板模式。' : denied ? '沒有允許動作感測器，先用觸控板模式。' : '讀不到陀螺儀，先用觸控板模式。');
+    }else startCal4();
+  },1500);
+});
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ try{ navigator.wakeLock && navigator.wakeLock.request('screen'); }catch(e){} if(!(conn&&conn.open)) connect(); } });
+</script>
+</body>
+</html>

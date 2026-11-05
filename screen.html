@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>拋體光槍對決</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+:root{
+  --bg:#0b1020; --panel:#141b33; --panel2:#1c2546; --ink:#eef2ff; --muted:#9aa6c8; --line:#2c3763;
+  --p1:#ff4d6d; --p2:#3fa9ff; --ok:#2fd27a; --warn:#ffcc4d;
+  --card:#f7f8fc; --cardink:#141a2e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;overflow:hidden}
+button{font:inherit;cursor:pointer}
+[hidden]{display:none!important}
+.katex{font-size:1.05em}
+
+/* ---------- 大廳 ---------- */
+#lobby{position:fixed;inset:0;display:flex;flex-direction:column;padding:2.2vh 2.5vw}
+#lobby h1{margin:0;font-size:clamp(28px,3.2vw,56px);letter-spacing:.06em}
+#lobby .sub{margin:.3em 0 0;color:var(--muted);font-size:clamp(14px,1.2vw,20px)}
+.lobbymid{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;gap:2vw;min-height:0}
+.pcard{background:var(--panel);border:2px solid var(--line);border-radius:18px;padding:18px;text-align:center;max-width:360px;width:100%;justify-self:center}
+.pcard.p1{border-color:var(--p1)} .pcard.p2{border-color:var(--p2)}
+.pcard h2{margin:0 0 10px;font-size:clamp(20px,1.8vw,30px)}
+.p1 h2{color:var(--p1)} .p2 h2{color:var(--p2)}
+.qr{background:#fff;border-radius:10px;padding:10px;display:inline-block;min-width:220px;min-height:220px}
+.qr img,.qr canvas{display:block}
+.st{margin-top:10px;font-size:18px;color:var(--muted)}
+.st.on{color:var(--ok);font-weight:700}
+.url{display:block;margin-top:6px;font-size:11px;color:var(--muted);word-break:break-all;opacity:.7}
+.calibhint{text-align:center;color:var(--muted);font-size:clamp(14px,1.1vw,19px);align-self:end;padding-bottom:4vh}
+#calLayer{position:fixed;inset:0;pointer-events:none;z-index:45}
+.cm{position:absolute;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:50%;border:3px dashed var(--warn);opacity:.55}
+.cm::after{content:"";position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;border-radius:50%;background:var(--warn)}
+.cm b{position:absolute;left:50%;top:-30px;transform:translateX(-50%);color:var(--warn);font-size:18px}
+.cm i{position:absolute;left:50%;top:84px;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-weight:900;font-size:20px;color:var(--c);text-shadow:0 2px 6px #000}
+.cm.edge-t i{top:84px} .cm.edge-b b{top:auto;bottom:-30px} .cm.edge-b i{top:auto;bottom:84px}
+.cm.edge-l i,.cm.edge-l b{left:0;transform:none} .cm.edge-r i,.cm.edge-r b{left:auto;right:0;transform:none}
+.cm.on{opacity:1;border:5px solid var(--c);background:rgba(255,255,255,.12);animation:pulse .9s ease-in-out infinite alternate}
+.cm.on::after{background:var(--c)}
+@keyframes pulse{to{transform:scale(1.18)}}
+.setup{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 18px;display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center}
+.setup fieldset{border:0;margin:0;padding:0;display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.setup legend{float:left;margin-right:8px;color:var(--muted);font-size:14px}
+.setup label{font-size:16px;display:inline-flex;gap:5px;align-items:center;white-space:nowrap}
+.setup select{font:inherit;font-size:16px;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:3px 6px}
+#startBtn{margin-left:auto;font-size:22px;font-weight:800;padding:12px 34px;border:0;border-radius:14px;background:linear-gradient(90deg,var(--p1),var(--p2));color:#fff}
+#net{width:100%;font-size:13px;color:var(--muted)}
+#net.err{color:var(--warn)}
+
+/* ---------- 遊戲 ---------- */
+#game{position:fixed;inset:0;display:flex;flex-direction:column;padding:1.2vh 1.5vw;gap:1vh}
+.hud{display:grid;grid-template-columns:auto 1fr auto;gap:2vw;align-items:center}
+.pscore{display:flex;align-items:baseline;gap:12px;font-size:clamp(16px,1.3vw,24px);min-width:13vw}
+.pscore b{font-size:clamp(30px,3.2vw,58px);font-variant-numeric:tabular-nums}
+.pscore.p1{color:var(--p1)} .pscore.p2{color:var(--p2);justify-content:flex-end}
+.pscore .nm{font-weight:700}
+.pscore .off{font-size:13px;color:var(--muted)}
+.mid{text-align:center}
+#meta{color:var(--muted);font-size:clamp(14px,1.1vw,20px)}
+.tbar{height:10px;background:var(--panel2);border-radius:6px;overflow:hidden;margin-top:6px}
+#tfill{display:block;height:100%;width:100%;background:var(--ok);transform-origin:left center}
+#qcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:1.4vh 1.6vw;max-height:36vh;overflow:hidden}
+.qhead{display:flex;gap:12px;align-items:center;font-size:clamp(14px,1.05vw,19px);color:var(--muted)}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:2px 12px;color:var(--ink)}
+#qstep{margin-left:auto;color:var(--warn);font-weight:700}
+#qctx{margin-top:.6vh;color:var(--muted);font-size:clamp(14px,1.05vw,20px);line-height:1.55}
+#qctx b{color:#c9d3f5}
+#qprompt{margin-top:.8vh;font-size:clamp(20px,1.75vw,34px);line-height:1.5;font-weight:600}
+#qprompt.long{font-size:clamp(18px,1.45vw,28px)}
+#qprompt ol{margin:.3em 0 0;padding-left:1.4em;font-size:.9em}
+#fb{min-height:2.2em;font-size:clamp(15px,1.15vw,21px);line-height:1.45;padding:0 .4vw}
+#fb .line{animation:pop .25s ease-out}
+#arena{position:relative;flex:1;min-height:0;border-radius:18px;background:radial-gradient(ellipse at center,#18214a 0%,#0e1430 70%);border:1px solid var(--line);overflow:hidden}
+
+.target{position:absolute;left:0;top:0;width:38%;transform:translate(-50%,-50%);background:var(--card);color:var(--cardink);border-radius:20px;padding:1.2vh 1.2vw 1.2vh 4.6vw;font-size:clamp(16px,1.6vw,30px);line-height:1.4;font-weight:600;min-height:9vh;display:flex;align-items:center;box-shadow:0 8px 0 rgba(0,0,0,.35);transition:opacity .3s,filter .3s;will-change:left,top}
+.target .let{position:absolute;left:.9vw;top:50%;transform:translateY(-50%);width:3vw;height:3vw;min-width:34px;min-height:34px;border-radius:50%;background:var(--cardink);color:#fff;display:grid;place-items:center;font-size:.95em;font-weight:800}
+.target.dead{opacity:.35;filter:grayscale(1)}
+.target.dead::after{content:"✗";position:absolute;right:.8vw;top:50%;transform:translateY(-50%);font-size:2.2em;color:var(--pc,#e33);font-weight:900}
+.target.correct{background:#d8ffe9;box-shadow:0 0 0 6px var(--ok),0 0 40px var(--ok)}
+.target.fade{opacity:.25}
+
+#reveal{position:absolute;inset:0;display:grid;grid-template-columns:1fr auto;gap:2vw;padding:2vh 2vw;background:rgba(11,16,32,.94);animation:pop .3s ease-out}
+#reveal .exp{overflow:auto;font-size:clamp(15px,1.25vw,23px);line-height:1.6}
+#reveal .who{font-size:clamp(22px,2vw,38px);font-weight:800;margin-bottom:.4em}
+#reveal .ans{display:inline-block;background:#d8ffe9;color:#0f3d24;border-radius:10px;padding:.15em .6em;font-weight:800}
+#reveal .eqs{overflow-x:auto}
+#reveal .exp,.review{scrollbar-color:var(--line) transparent}
+#reveal .katex-display{text-align:left;margin:.3em 0 .3em 1em}
+#reveal .katex-display>.katex{text-align:left}
+#reveal .eqlab{color:var(--warn);margin:.6em 0 .1em}
+#reveal ul{margin:.3em 0;padding-left:1.3em}
+#nextT{align-self:center;width:min(22vw,34vh);height:min(22vw,34vh);border-radius:50%;background:radial-gradient(circle,#fff 0 22%,var(--warn) 23% 40%,#fff 41% 58%,var(--warn) 59% 100%);display:grid;place-items:center;color:var(--cardink);font-size:clamp(18px,1.7vw,32px);font-weight:900;text-align:center;box-shadow:0 0 0 6px rgba(255,204,77,.25)}
+#nextT span{background:#fff;border-radius:10px;padding:.2em .5em}
+.keyhint{position:absolute;right:1.2vw;bottom:.8vh;font-size:12px;color:var(--muted)}
+
+/* ---------- 結束 ---------- */
+#end{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;padding:3vh 4vw;text-align:center}
+#end h1{font-size:clamp(34px,4vw,72px);margin:0}
+.final{display:flex;gap:4vw}
+.final div{background:var(--panel);border-radius:18px;padding:2vh 3vw;min-width:22vw;border:2px solid var(--line)}
+.final .p1{border-color:var(--p1)} .final .p2{border-color:var(--p2)}
+.final b{display:block;font-size:clamp(40px,5vw,90px)}
+.review{max-width:1100px;width:100%;text-align:left;background:var(--panel);border-radius:14px;padding:1.4vh 1.6vw;max-height:34vh;overflow:auto;font-size:16px;line-height:1.6}
+.review h3{margin:0 0 .4em;font-size:18px;color:var(--warn)}
+.review li{margin-bottom:.3em}
+#againBtn{font-size:22px;font-weight:800;padding:12px 34px;border:0;border-radius:14px;background:var(--ok);color:#06210f}
+
+/* ---------- 準星與特效 ---------- */
+.xh{position:fixed;left:0;top:0;width:64px;height:64px;margin:-32px 0 0 -32px;border:4px solid var(--c);border-radius:50%;pointer-events:none;z-index:50;will-change:transform;filter:drop-shadow(0 0 6px var(--c))}
+.xh::before,.xh::after{content:"";position:absolute;background:var(--c)}
+.xh::before{left:50%;top:-14px;bottom:-14px;width:3px;margin-left:-1.5px}
+.xh::after{top:50%;left:-14px;right:-14px;height:3px;margin-top:-1.5px}
+.xh i{position:absolute;left:100%;top:100%;font-style:normal;font-weight:900;font-size:16px;color:var(--c);white-space:nowrap}
+.xh.locked{opacity:.35;border-style:dashed}
+#xh1{--c:var(--p1)} #xh2{--c:var(--p2)}
+.shot{position:fixed;width:30px;height:30px;margin:-15px;border-radius:50%;border:4px solid var(--c);pointer-events:none;z-index:49;animation:shot .4s ease-out forwards}
+.float{position:fixed;z-index:51;font-weight:900;font-size:34px;pointer-events:none;animation:up 1s ease-out forwards;text-shadow:0 2px 6px #000}
+@keyframes shot{to{transform:scale(3);opacity:0}}
+@keyframes up{to{transform:translateY(-70px);opacity:0}}
+@keyframes pop{from{transform:scale(.96);opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ================= 大廳 ================= -->
+<section id="lobby">
+  <div>
+    <h1>拋體光槍對決</h1>
+    <p class="sub">電子一甲 · 小組命題挑戰題庫 · 手機掃 QR Code 就變光槍，射中正確答案的靶</p>
+  </div>
+  <div class="lobbymid">
+    <div class="pcard p1">
+      <h2>紅隊 P1</h2>
+      <div class="qr" id="qr1"></div>
+      <div class="st" id="st1">等待手機掃碼…</div>
+      <a class="url" id="url1" target="_blank" rel="noopener"></a>
+    </div>
+    <div class="calibhint">手機按「開始」後會帶你做<b style="color:var(--warn)">五點校準</b>：<br>依序對準中央和四個角的黃色圓點<br>每支手機各自校準，坐哪裡都能瞄準</div>
+    <div class="pcard p2">
+      <h2>藍隊 P2</h2>
+      <div class="qr" id="qr2"></div>
+      <div class="st" id="st2">等待手機掃碼…</div>
+      <a class="url" id="url2" target="_blank" rel="noopener"></a>
+    </div>
+  </div>
+  <div class="setup">
+    <fieldset id="groupBox"><legend>題目來源</legend></fieldset>
+    <fieldset><legend>玩法</legend>
+      <select id="mode">
+        <option value="chain">引導闖關：先答引導問題，再答正式題</option>
+        <option value="main">只考正式題</option>
+        <option value="mix">引導題＋正式題 全部打散</option>
+      </select>
+    </fieldset>
+    <fieldset><legend>題數</legend>
+      <select id="count"><option value="10">10 題</option><option value="15" selected>15 題</option><option value="20">20 題</option><option value="30">30 題</option><option value="0">全部</option></select>
+    </fieldset>
+    <fieldset><legend>每題秒數</legend>
+      <select id="secs"><option value="20">20 秒</option><option value="30" selected>30 秒</option><option value="45">45 秒</option><option value="60">60 秒</option></select>
+    </fieldset>
+    <fieldset><legend>靶</legend>
+      <select id="move"><option value="0">不動</option><option value="1" selected>慢慢飄</option><option value="2">飄很快</option></select>
+    </fieldset>
+    <label title="沒有手機時測試用：滑鼠控制 P1；方向鍵＋Enter 控制 P2"><input type="checkbox" id="testMode"> 電腦測試模式</label>
+    <button id="startBtn">開始對戰 ▶</button>
+    <div id="net">正在連線到配對伺服器…</div>
+  </div>
+</section>
+<div id="calLayer"></div>
+
+<!-- ================= 遊戲 ================= -->
+<section id="game" hidden>
+  <header class="hud">
+    <div class="pscore p1"><span class="nm">紅 P1</span><b id="s1">0</b><span class="off" id="o1"></span></div>
+    <div class="mid"><div id="meta"></div><div class="tbar"><i id="tfill"></i></div></div>
+    <div class="pscore p2"><span class="off" id="o2"></span><b id="s2">0</b><span class="nm">藍 P2</span></div>
+  </header>
+  <div id="qcard">
+    <div class="qhead"><span class="chip" id="qtag"></span><span id="qtitle"></span><span id="qstep"></span></div>
+    <div id="qctx"></div>
+    <div id="qprompt"></div>
+  </div>
+  <div id="fb"></div>
+  <div id="arena"></div>
+  <div class="keyhint">空白鍵：下一題　N：跳過這題　Esc：結束</div>
+</section>
+
+<!-- ================= 結束 ================= -->
+<section id="end" hidden>
+  <h1 id="winner"></h1>
+  <div class="final">
+    <div class="p1"><span style="color:var(--p1)">紅隊 P1</span><b id="f1">0</b><small id="fd1"></small></div>
+    <div class="p2"><span style="color:var(--p2)">藍隊 P2</span><b id="f2">0</b><small id="fd2"></small></div>
+  </div>
+  <div class="review" id="review"></div>
+  <button id="againBtn">回大廳再來一局</button>
+</section>
+
+<div class="xh" id="xh1" hidden><i>P1</i></div>
+<div class="xh" id="xh2" hidden><i>P2</i></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="questions.js"></script>
+<script>
+/* ===================== 小工具 ===================== */
+const $ = s => document.querySelector(s);
+const COLORS = {1:'#ff4d6d', 2:'#3fa9ff'};
+const LET = 'ABCD';
+const WRONG = 30;          // 打錯扣分
+const LOCK_MS = 1500;      // 打錯後冷卻時間
+const TEX_OPTS = {delimiters:[{left:'\\[',right:'\\]',display:true},{left:'\\(',right:'\\)',display:false}],throwOnError:false,strict:'ignore'};
+function tex(el){ if(el && window.renderMathInElement){ try{ renderMathInElement(el,TEX_OPTS); }catch(e){} } }
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function store(k,v){ try{ if(v===undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k,v); }catch(e){ return null; } }
+
+/* 1€ 濾波：慢慢動時強力去抖，快速甩動時少濾波（不延遲） */
+class OneEuro{
+  constructor(minCut=1.2, beta=6, dCut=1){ this.minCut=minCut; this.beta=beta; this.dCut=dCut; this.tp=null; }
+  a(cut,dt){ const tau=1/(2*Math.PI*cut); return 1/(1+tau/dt); }
+  filter(x,t){
+    if(this.tp===null){ this.tp=t; this.xp=x; this.dxp=0; return x; }
+    const dt=Math.max(1e-3,(t-this.tp)/1000);
+    const dx=(x-this.xp)/dt, ad=this.a(this.dCut,dt), dxh=ad*dx+(1-ad)*this.dxp;
+    const al=this.a(this.minCut+this.beta*Math.abs(dxh),dt), xh=al*x+(1-al)*this.xp;
+    this.tp=t; this.xp=xh; this.dxp=dxh; return xh;
+  }
+}
+
+/* 音效 */
+let AC=null;
+function sfx(k){
+  try{
+    AC = AC || new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(AC.destination);
+    const t=AC.currentTime, f={ok:[660,1320],bad:[240,110],miss:[500,350],next:[520,780]}[k]||[500,500];
+    o.type = k==='bad' ? 'sawtooth' : 'square';
+    o.frequency.setValueAtTime(f[0],t); o.frequency.exponentialRampToValueAtTime(f[1],t+0.18);
+    g.gain.setValueAtTime(k==='miss'?0.03:0.08,t); g.gain.exponentialRampToValueAtTime(0.0001,t+0.3);
+    o.start(t); o.stop(t+0.32);
+  }catch(e){}
+}
+
+/* ===================== 玩家 ===================== */
+function mkPlayer(p){ return {p, conn:null, score:0, ok:0, bad:0, x:.5, y:.5, fx:new OneEuro(), fy:new OneEuro(), lock:0, mode:'', calStep:-1}; }
+const players = {1:mkPlayer(1), 2:mkPlayer(2)};
+const testMode = () => $('#testMode').checked;
+function active(p){ return !!(players[p].conn && players[p].conn.open) || (testMode()); }
+
+/* ===================== 題庫 → 回合 ===================== */
+function fmtNum(v){ return v<0 ? '−'+Math.abs(v) : String(v); }
+function numDistractors(a){
+  const c=[a*2, a/2, -a, a+10, a-10, a*3, a+5, a-5, a+1, a+2], out=[];
+  for(const v of c){
+    if(!Number.isInteger(v) || v===a || out.includes(v)) continue;
+    if(a>=0 && v<0) continue;
+    out.push(v); if(out.length===3) break;
+  }
+  return out;
+}
+function stemHTML(q){
+  let h=q.stem;
+  if(q.subs) h += '<ol>'+q.subs.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
+  return h;
+}
+function mainItem(q,label){
+  return {kind:'main', label, tag:q.tag, title:q.title, context:'', prompt:stemHTML(q),
+          choices:q.options.slice(), ans:q.ans, fb:q.optFb||{}, ok:'', sol:q.sol, points:100, step:null};
+}
+function stepItem(q,s,k,label){
+  let choices, ans; const fb={};
+  if(s.t==='mc'){
+    const idx=shuffle(s.c.map((_,i)=>i));
+    choices=idx.map(i=>s.c[i]); ans=idx.indexOf(s.a);
+    idx.forEach((orig,j)=>{ if(orig!==s.a) fb[j]=(s.h&&s.h[orig])||''; });
+  }else{
+    const vals=shuffle([s.a, ...numDistractors(s.a)]);
+    choices=vals.map(v=>fmtNum(v)+' '+(s.u||'')); ans=vals.indexOf(s.a);
+    vals.forEach((v,j)=>{ if(v!==s.a) fb[j]=s.h||''; });
+  }
+  return {kind:'step', label, tag:q.tag, title:q.title, context:stemHTML(q), prompt:s.q,
+          choices, ans, fb, ok:s.ok||'', sol:null, points:50, step:[k+1,q.steps.length]};
+}
+function buildPool(cfg){
+  const seen=new Set(), chains=[];
+  GROUPS.forEach(g=>{
+    if(!cfg.groups.includes(g.id)) return;
+    g.qs.forEach((q,i)=>{
+      if(seen.has(q)) return; seen.add(q);
+      const label = g.name+' 第 '+[8,9,10][i]+' 題';
+      const steps = q.steps.map((s,k)=>stepItem(q,s,k,label));
+      const main  = q.options ? mainItem(q,label) : null;
+      if(cfg.mode==='main'){ if(main) chains.push([main]); }
+      else if(cfg.mode==='chain'){ chains.push(main ? [...steps, main] : steps); }
+      else { steps.forEach(s=>chains.push([s])); if(main) chains.push([main]); }
+    });
+  });
+  let flat = shuffle(chains).flat();
+  if(cfg.count>0) flat = flat.slice(0,cfg.count);
+  return flat;
+}
+
+/* ===================== 連線（PeerJS / WebRTC） ===================== */
+function rid(){ const c='abcdefghjkmnpqrstuvwxyz23456789'; let s=''; for(let i=0;i<6;i++) s+=c[Math.random()*c.length|0]; return s; }
+let room = store('pgunRoom'); if(!room){ room=rid(); store('pgunRoom',room); }
+let peer = null;
+
+function gunURL(p){ const u=new URL('gun.html', location.href); u.search=''; u.hash=''; u.searchParams.set('room',room); u.searchParams.set('p',p); return u.href; }
+function makeQR(p){
+  const box=$('#qr'+p); box.innerHTML=''; const url=gunURL(p);
+  if(window.QRCode) new QRCode(box,{text:url,width:220,height:220,colorDark:'#0b1020',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  else box.textContent='QR 元件載入失敗';
+  const a=$('#url'+p); a.textContent=url; a.href=url;
+}
+function netMsg(t,err){ const n=$('#net'); n.textContent=t; n.classList.toggle('err',!!err); }
+
+function startPeer(){
+  if(typeof Peer==='undefined'){ netMsg('無法載入連線元件 PeerJS：請確認這台電腦有連上網路。',true); return; }
+  peer = new Peer('pgun-'+room, {debug:1});
+  peer.on('open', ()=>{
+    let t='配對伺服器已連線　房間代碼：'+room+'　（手機掃碼後就會出現在左右兩邊）';
+    if(location.protocol==='file:') { t='⚠ 目前是直接開檔案（file://），手機掃了也打不開。請把整個資料夾上傳到 HTTPS 網站（例如 GitHub Pages）再開。'; netMsg(t,true); }
+    else if(!window.isSecureContext) { netMsg(t+'　⚠ 不是 HTTPS，手機的陀螺儀會被擋，只能用觸控板模式。',true); }
+    else netMsg(t);
+    makeQR(1); makeQR(2);
+  });
+  peer.on('connection', onConn);
+  peer.on('disconnected', ()=>{ netMsg('和配對伺服器斷線，重新連線中…',true); setTimeout(()=>{ try{ peer.reconnect(); }catch(e){} },1500); });
+  peer.on('error', e=>{
+    if(e.type==='unavailable-id'){ room=rid(); store('pgunRoom',room); try{peer.destroy();}catch(_){} startPeer(); return; }
+    if(e.type==='peer-unavailable') return;
+    netMsg('連線錯誤：'+e.type+'（請確認網路，或重新整理頁面）',true);
+  });
+}
+function onConn(conn){
+  const p = Number(conn.metadata && conn.metadata.p);
+  if(p!==1 && p!==2){ conn.close(); return; }
+  conn.on('open', ()=>{
+    const P=players[p];
+    if(P.conn && P.conn!==conn){ try{ P.conn.close(); }catch(e){} }
+    P.conn=conn; P.fx=new OneEuro(); P.fy=new OneEuro();
+    send(p,{t:'hello', score:P.score, phase});
+    updStatus();
+  });
+  conn.on('data', d=>onData(p,d,conn));
+  conn.on('close', ()=>{ if(players[p].conn===conn){ players[p].conn=null; players[p].calStep=-1; updStatus(); renderCal(); } });
+  conn.on('error', ()=>{});
+}
+function send(p,m){ const c=players[p].conn; if(c && c.open){ try{ c.send(m); }catch(e){} } }
+function sendAll(m){ send(1,m); send(2,m); }
+function onData(p,d,conn){
+  if(!d || typeof d!=='object' || players[p].conn!==conn) return;
+  const P=players[p];
+  if(d.t==='aim'){
+    const t=performance.now(), x=+d.x, y=+d.y;
+    if(!isFinite(x)||!isFinite(y)) return;
+    P.x=P.fx.filter(x,t); P.y=P.fy.filter(y,t);
+    if(d.m && d.m!==P.mode){ P.mode=d.m; updStatus(); }
+  }else if(d.t==='fire'){ fire(p); }
+  else if(d.t==='hi'){ P.mode=d.m||''; updStatus(); }
+  else if(d.t==='cal'){ P.calStep=Number(d.step); if(!(P.calStep>=0&&P.calStep<5)) P.calStep=-1; renderCal(); }
+}
+
+/* 五點校準的標記：位置要和 gun.html 的 CAL_PTS 一樣 */
+const CAL_PTS=[[.5,.5],[.05,.07],[.95,.07],[.95,.93],[.05,.93]];
+const calLayer=document.getElementById('calLayer');
+CAL_PTS.forEach((pt,i)=>{
+  const d=document.createElement('div');
+  d.className='cm'+(pt[1]<.5?' edge-t':pt[1]>.5?' edge-b':'')+(pt[0]<.5?' edge-l':pt[0]>.5?' edge-r':'');
+  d.style.left=(pt[0]*100)+'%'; d.style.top=(pt[1]*100)+'%';
+  d.innerHTML='<b>'+(i?'①②③④'[i-1]:'')+'</b><i></i>';
+  calLayer.appendChild(d);
+});
+function renderCal(){
+  const st={1:players[1].calStep, 2:players[2].calStep};
+  const any=st[1]>=0 || st[2]>=0;
+  calLayer.hidden = !(phase==='lobby' || any);
+  [...calLayer.children].forEach((d,i)=>{
+    const who=[1,2].filter(p=>st[p]===i);
+    d.classList.toggle('on', who.length>0);
+    d.style.setProperty('--c', who.length ? COLORS[who[0]] : 'var(--warn)');
+    d.querySelector('i').textContent = who.length ? who.map(p=>'P'+p).join('、')+' 對準這裡' : '';
+  });
+}
+function updStatus(){
+  [1,2].forEach(p=>{
+    const P=players[p], on=!!(P.conn && P.conn.open);
+    const st=$('#st'+p);
+    st.textContent = on ? '已連線 ✓'+(P.mode==='pad'?'（觸控板模式）':P.mode==='gyro'?'（陀螺儀模式）':'') : (testMode()? (p===1?'測試：滑鼠控制':'測試：方向鍵＋Enter') : '等待手機掃碼…');
+    st.classList.toggle('on', on);
+    $('#o'+p).textContent = on ? '' : (testMode()?'測試':'未連線');
+  });
+}
+
+/* ===================== 大廳設定 ===================== */
+GROUPS.forEach(g=>{
+  const l=document.createElement('label');
+  l.innerHTML='<input type="checkbox" value="'+g.id+'" checked> '+g.name;
+  $('#groupBox').appendChild(l);
+});
+function readCfg(){
+  return {
+    groups:[...document.querySelectorAll('#groupBox input:checked')].map(i=>+i.value),
+    mode:$('#mode').value, count:+$('#count').value, secs:+$('#secs').value, move:+$('#move').value
+  };
+}
+$('#testMode').addEventListener('change', updStatus);
+
+/* ===================== 遊戲流程 ===================== */
+let phase='lobby', cfg=null, pool=[], qi=0, cur=null, roundStart=0, roundEnd=0, targets=[], nextT=null, log=[], curLog=null;
+
+function show(id){ ['lobby','game','end'].forEach(s=>$('#'+s).hidden = s!==id); renderCal(); }
+
+$('#startBtn').addEventListener('click', ()=>{
+  cfg=readCfg();
+  if(!cfg.groups.length){ alert('請至少勾選一組題目'); return; }
+  pool=buildPool(cfg);
+  if(!pool.length){ alert('這個組合沒有可以出的題目（問答題只會在「引導」玩法出現）'); return; }
+  sfx('next');
+  [1,2].forEach(p=>{ const P=players[p]; P.score=0; P.ok=0; P.bad=0; P.lock=0; });
+  log=[]; qi=0; show('game'); updHud(); startRound();
+});
+$('#againBtn').addEventListener('click', ()=>{ phase='lobby'; sendAll({t:'phase',phase}); show('lobby'); updStatus(); });
+
+function updHud(){ [1,2].forEach(p=>{ $('#s'+p).textContent=players[p].score; }); }
+
+function startRound(){
+  cur=pool[qi]; phase='play'; renderCal();
+  curLog={label:cur.label, title:cur.title, kind:cur.kind, prompt:cur.prompt, wrong:[], by:0};
+  $('#meta').textContent = '第 '+(qi+1)+' / '+pool.length+' 回合　·　'+cur.label+'（'+cur.title+'）';
+  $('#qtag').textContent = cur.tag;
+  $('#qtitle').textContent = cur.kind==='main' ? '正式題' : '引導問題';
+  $('#qstep').textContent = cur.step ? '引導 '+cur.step[0]+' / '+cur.step[1] : '★ 正式題 100 分';
+  $('#qctx').innerHTML = cur.context || '';
+  $('#qctx').hidden = !cur.context;
+  const qp=$('#qprompt'); qp.innerHTML = cur.prompt; qp.classList.toggle('long', cur.prompt.length>120);
+  tex($('#qcard'));
+  $('#fb').innerHTML='';
+  buildTargets();
+  const secs = cur.kind==='main' ? cfg.secs : Math.max(15, Math.round(cfg.secs*0.7));
+  roundStart=performance.now(); roundEnd=roundStart+secs*1000;
+  sendAll({t:'phase',phase});
+}
+
+const LAYOUT = {
+  2:[[.27,.5],[.73,.5]],
+  3:[[.27,.27],[.73,.27],[.5,.75]],
+  4:[[.27,.27],[.73,.27],[.27,.75],[.73,.75]]
+};
+function buildTargets(){
+  const ar=$('#arena'); ar.innerHTML=''; targets=[]; nextT=null;
+  const pos=LAYOUT[cur.choices.length] || LAYOUT[4];
+  cur.choices.forEach((c,i)=>{
+    const el=document.createElement('div'); el.className='target';
+    el.innerHTML='<span class="let">'+LET[i]+'</span><span class="txt">'+c+'</span>';
+    ar.appendChild(el); tex(el);
+    targets.push({i, el, bx:pos[i][0], by:pos[i][1], ph:Math.random()*6.28, dead:false, hl:''});
+  });
+}
+
+function inEl(el,px,py,pad){ const r=el.getBoundingClientRect(); pad=pad||6; return px>=r.left-pad && px<=r.right+pad && py>=r.top-pad && py<=r.bottom+pad; }
+
+function fire(p){
+  const P=players[p], now=performance.now();
+  if(phase!=='play' && phase!=='reveal') return;
+  if(now<P.lock) return;
+  const px=P.x*innerWidth, py=P.y*innerHeight;
+  shotFx(px,py,p);
+  if(phase==='reveal'){
+    if(nextT && inEl(nextT,px,py,20)) nextRound();
+    return;
+  }
+  const hit=targets.find(T=>!T.dead && inEl(T.el,px,py));
+  if(!hit){ sfx('miss'); return; }
+  if(hit.i===cur.ans){
+    const remain=Math.max(0,(roundEnd-now)/1000);
+    const pts=cur.points+Math.round(remain*2);
+    P.score+=pts; P.ok++; curLog.by=p;
+    floatText(px,py,'+'+pts,COLORS[p]); sfx('ok');
+    send(p,{t:'res',ok:true,pts,score:P.score});
+    updHud(); reveal(p,pts,hit);
+  }else{
+    hit.dead=true; hit.el.classList.add('dead'); hit.el.style.setProperty('--pc',COLORS[p]);
+    P.score-=WRONG; P.bad++; P.lock=now+LOCK_MS; curLog.wrong.push(p);
+    floatText(px,py,'−'+WRONG,COLORS[p]); sfx('bad');
+    send(p,{t:'res',ok:false,pts:-WRONG,score:P.score});
+    updHud(); showFb(p,hit.i);
+  }
+}
+function showFb(p,i){
+  const tip = cur.fb[i] || '再想想看，回頭看一下題目的條件。';
+  const d=document.createElement('div'); d.className='line';
+  d.innerHTML='<b style="color:'+COLORS[p]+'">P'+p+' 打中 ('+LET[i]+') ✗</b>　'+tip;
+  const fb=$('#fb'); fb.prepend(d); while(fb.children.length>2) fb.lastChild.remove();
+  tex(d);
+}
+function reveal(winner,pts,hitT){
+  phase='reveal';
+  targets.forEach(T=>{ if(T.i===cur.ans) T.el.classList.add('correct'); else T.el.classList.add('fade'); });
+  log.push(curLog);
+  sendAll({t:'phase',phase});
+  setTimeout(()=>{
+    if(phase!=='reveal') return;
+    const ar=$('#arena'), box=document.createElement('div'); box.id='reveal';
+    const who = winner ? '<span style="color:'+COLORS[winner]+'">P'+winner+' 答對！+'+pts+'</span>' : '<span style="color:var(--warn)">時間到，沒有人答對</span>';
+    let exp='<div class="who">'+who+'</div><p>正解 <span class="ans">('+LET[cur.ans]+')</span>　'+cur.choices[cur.ans]+'</p>';
+    if(cur.ok) exp+='<p>💡 '+cur.ok+'</p>';
+    if(cur.sol) exp+='<div>'+cur.sol+'</div>';
+    box.innerHTML='<div class="exp">'+exp+'</div><div id="nextT"><span>'+(qi+1>=pool.length?'看結果 ▶':'射我<br>下一題 ▶')+'</span></div>';
+    ar.appendChild(box); tex(box); nextT=$('#nextT');
+  }, 900);
+}
+function timeout(){ curLog.by=0; sfx('bad'); reveal(0,0,null); }
+function nextRound(){
+  if(phase!=='reveal') return;
+  sfx('next'); qi++;
+  if(qi>=pool.length) endGame(); else startRound();
+}
+function endGame(){
+  phase='end'; sendAll({t:'phase',phase});
+  const a=players[1], b=players[2];
+  $('#winner').textContent = a.score===b.score ? '平手！' : (a.score>b.score ? '紅隊 P1 獲勝！' : '藍隊 P2 獲勝！');
+  $('#winner').style.color = a.score===b.score ? 'var(--warn)' : COLORS[a.score>b.score?1:2];
+  $('#f1').textContent=a.score; $('#f2').textContent=b.score;
+  $('#fd1').textContent='答對 '+a.ok+' 題 · 打錯 '+a.bad+' 次';
+  $('#fd2').textContent='答對 '+b.ok+' 題 · 打錯 '+b.bad+' 次';
+  const hard=log.filter(l=>l.wrong.length || !l.by);
+  const r=$('#review');
+  r.innerHTML = hard.length
+    ? '<h3>這些題目有人打錯或沒人答對，值得全班再討論</h3><ol>'+hard.map(l=>'<li><b>'+l.label+'（'+l.title+'）'+(l.kind==='main'?'正式題':'引導')+'</b>：'+l.prompt.replace(/<ol>[\s\S]*<\/ol>/,'')+'　<small style="color:var(--muted)">'+(l.by?'P'+l.by+' 最後答對':'沒人答對')+(l.wrong.length?'，打錯 '+l.wrong.length+' 次':'')+'</small></li>').join('')+'</ol>'
+    : '<h3>全部一次答對，太強了！</h3>';
+  tex(r);
+  show('end');
+}
+
+/* ===================== 特效 ===================== */
+function shotFx(x,y,p){ const d=document.createElement('div'); d.className='shot'; d.style.left=x+'px'; d.style.top=y+'px'; d.style.setProperty('--c',COLORS[p]); document.body.appendChild(d); setTimeout(()=>d.remove(),450); }
+function floatText(x,y,t,c){ const d=document.createElement('div'); d.className='float'; d.textContent=t; d.style.left=(x+20)+'px'; d.style.top=(y-30)+'px'; d.style.color=c; document.body.appendChild(d); setTimeout(()=>d.remove(),1000); }
+
+/* ===================== 每格更新 ===================== */
+const xh={1:$('#xh1'),2:$('#xh2')};
+function frame(t){
+  requestAnimationFrame(frame);
+  const now=performance.now();
+  [1,2].forEach(p=>{
+    const P=players[p], el=xh[p], vis=active(p) && phase!=='end';
+    el.hidden=!vis; if(!vis) return;
+    el.style.transform='translate('+(P.x*innerWidth)+'px,'+(P.y*innerHeight)+'px)';
+    el.classList.toggle('locked', now<P.lock);
+  });
+  if(phase==='play'||phase==='reveal'){
+    const ar=$('#arena'), w=ar.clientWidth, h=ar.clientHeight, s=t/1000;
+    const amp=[0,.022,.05][cfg.move];
+    targets.forEach(T=>{
+      const x=(T.bx+amp*Math.sin(s*0.9+T.ph))*w, y=(T.by+amp*1.4*Math.cos(s*0.7+T.ph*1.3))*h;
+      T.el.style.left=x+'px'; T.el.style.top=y+'px';
+      let hl='';
+      if(phase==='play' && !T.dead) [1,2].forEach(p=>{ if(active(p) && inEl(T.el,players[p].x*innerWidth,players[p].y*innerHeight)) hl+=p; });
+      if(hl!==T.hl){ T.hl=hl; T.el.style.boxShadow = hl==='1'?'0 0 0 5px '+COLORS[1] : hl==='2'?'0 0 0 5px '+COLORS[2] : hl==='12'?'0 0 0 5px '+COLORS[1]+',0 0 0 10px '+COLORS[2] : ''; }
+    });
+  }
+  if(phase==='play'){
+    const f=Math.max(0,(roundEnd-now)/(roundEnd-roundStart));
+    const tf=$('#tfill'); tf.style.transform='scaleX('+f+')'; tf.style.background = f<.25?'var(--p1)':f<.5?'var(--warn)':'var(--ok)';
+    if(now>=roundEnd) timeout();
+  }
+}
+requestAnimationFrame(frame);
+
+/* ===================== 電腦測試模式與老師快捷鍵 ===================== */
+addEventListener('mousemove', e=>{ if(!testMode() || (players[1].conn&&players[1].conn.open)) return; players[1].x=e.clientX/innerWidth; players[1].y=e.clientY/innerHeight; });
+addEventListener('mousedown', e=>{ if(e.button!==0 || !testMode() || (players[1].conn&&players[1].conn.open)) return; if(e.target.closest('button,select,input,label,a')) return; fire(1); });
+addEventListener('keydown', e=>{
+  const P2=players[2], test2 = testMode() && !(P2.conn&&P2.conn.open);
+  if(test2 && e.key.startsWith('Arrow')){
+    const d=e.shiftKey?.08:.03;
+    if(e.key==='ArrowLeft') P2.x-=d; if(e.key==='ArrowRight') P2.x+=d;
+    if(e.key==='ArrowUp') P2.y-=d; if(e.key==='ArrowDown') P2.y+=d;
+    P2.x=Math.min(1,Math.max(0,P2.x)); P2.y=Math.min(1,Math.max(0,P2.y)); e.preventDefault(); return;
+  }
+  if(test2 && e.key==='Enter'){ fire(2); e.preventDefault(); return; }
+  if(e.key===' ' && phase==='reveal'){ nextRound(); e.preventDefault(); }
+  else if((e.key==='n'||e.key==='N') && phase==='play'){ timeout(); }
+  else if(e.key==='Escape' && (phase==='play'||phase==='reveal')){ if(confirm('要提前結束這一局嗎？')) endGame(); }
+});
+
+updStatus();
+startPeer();
+</script>
+</body>
+</html>
